@@ -139,7 +139,7 @@ void insertAll(const DatabaseConnection& db, const char* sql,
 
 Language nationFrom(std::int64_t value)
 {
-  return value >= 0 && value <= static_cast<std::int64_t>(Language::US)
+  return value >= 0 && value <= static_cast<std::int64_t>(Language::MU)
              ? static_cast<Language>(value)
              : Language::EN;
 }

@@ -274,7 +274,7 @@ ManagerSetupPanel::Action ManagerSetupPanel::render(
   const std::string nation = nationName(static_cast<Language>(nationality));
   if (ImGui::BeginCombo("##nationality", nation.c_str()))
   {
-    for (int index = 0; index <= static_cast<int>(Language::US); ++index)
+    for (int index = 0; index <= static_cast<int>(Language::MU); ++index)
     {
       const std::string option = nationName(static_cast<Language>(index));
       if (ImGui::Selectable(option.c_str(), index == nationality))

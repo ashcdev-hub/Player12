@@ -97,14 +97,14 @@ Language drawNationality(WorldRng& rng, LeagueID league_id)
 {
   if (rng.chance(0.75)) return leagueProfile(league_id).domestic_nationality;
   return static_cast<Language>(
-      rng.uniformInt(0, static_cast<int>(Language::US)));
+      rng.uniformInt(0, static_cast<int>(Language::MU)));
 }
 
 StaffMember generateCandidate(WorldRng& rng, StaffID id, StaffRole role)
 {
   StaffMember member = generateMember(
       role, rng.uniform(28.0f, 82.0f), FREE_AGENTS_TEAM_ID,
-      static_cast<Language>(rng.uniformInt(0, static_cast<int>(Language::US))),
+      static_cast<Language>(rng.uniformInt(0, static_cast<int>(Language::MU))),
       rng, id);
   member.wage = StaffModel::marketWage(member);
   return member;

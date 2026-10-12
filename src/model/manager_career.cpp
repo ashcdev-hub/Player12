@@ -721,7 +721,7 @@ AiManager ManagerCareer::generateManager(TeamID team_id, float reputation,
       team && rng.chance(0.7)
           ? leagueProfile(team->get().getLeagueId()).domestic_nationality
           : static_cast<Language>(
-                rng.uniformInt(0, static_cast<int>(Language::US)));
+                rng.uniformInt(0, static_cast<int>(Language::MU)));
   const NamePool& names = NamePool::instance();
   const auto& firsts = names.firstNames(manager.nationality);
   const auto& lasts = names.lastNames(manager.nationality);
@@ -1717,7 +1717,7 @@ void ManagerCareer::load(const std::shared_ptr<DatabaseConnection>& db_conn)
         profile.last_name = columnText(stmt, 1);
         profile.nationality = static_cast<Language>(
             std::clamp<std::int64_t>(sqlite3_column_int64(stmt, 2), 0,
-                                     static_cast<std::int64_t>(Language::US)));
+                                     static_cast<std::int64_t>(Language::MU)));
         profile.age = columnAs<std::uint8_t>(stmt, 3);
         profile.reputation = columnFloat(stmt, 4);
         profile.licence = enumFrom(sqlite3_column_int64(stmt, 5),
@@ -1798,7 +1798,7 @@ void ManagerCareer::load(const std::shared_ptr<DatabaseConnection>& db_conn)
         manager.last_name = columnText(stmt, 2);
         manager.nationality = static_cast<Language>(
             std::clamp<std::int64_t>(sqlite3_column_int64(stmt, 3), 0,
-                                     static_cast<std::int64_t>(Language::US)));
+                                     static_cast<std::int64_t>(Language::MU)));
         manager.age = columnAs<std::uint8_t>(stmt, 4);
         manager.reputation = columnFloat(stmt, 5);
         manager.ability = columnFloat(stmt, 6);

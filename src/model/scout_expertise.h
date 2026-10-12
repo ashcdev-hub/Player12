@@ -73,6 +73,7 @@ enum class Continent : std::uint8_t
   NorthAmerica,
   SouthAmerica,
   Asia,
+  Africa,
   COUNT
 };
 
