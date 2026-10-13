@@ -7,6 +7,7 @@
 // -----------------------------------------------------------------------------
 
 #include "database/datagenerator.h"
+#include "database/user_database.h"
 
 #include <algorithm>
 #include <charconv>
@@ -44,6 +45,40 @@ template <typename Visitor>
 void forEachPackItem(const std::string& directory, Visitor&& visit)
 {
   for (const auto& entry : fs::directory_iterator(directory))
+  {
+    if (!entry.is_regular_file() || entry.path().extension() != ".json")
+      continue;
+    std::ifstream f(entry.path());
+    for (const auto& item : json::parse(f)) visit(item);
+  }
+}
+
+/**
+ * Calls @p visit for every club of the active user database, else every
+ * element of the pack team files. The repository never ships real data; an
+ * imported database replaces the pack for this process.
+ */
+template <typename Visitor>
+void visitClubItems(Visitor&& visit)
+{
+  if (const auto db = UserDatabase::activeContent())
+  {
+    for (const auto& item : db->clubs) visit(item);
+    return;
+  }
+  forEachPackItem(AssetPaths::teamsDir(), std::forward<Visitor>(visit));
+}
+
+/** Same overlay for the pack player files. */
+template <typename Visitor>
+void visitPlayerItems(Visitor&& visit)
+{
+  if (const auto db = UserDatabase::activeContent())
+  {
+    for (const auto& item : db->players) visit(item);
+    return;
+  }
+  for (const auto& entry : fs::directory_iterator(AssetPaths::playersDir()))
   {
     if (!entry.is_regular_file() || entry.path().extension() != ".json")
       continue;
@@ -185,8 +220,15 @@ std::uint8_t defaultSkinTone(Language nationality, PlayerID id)
 
 std::vector<League> DataGenerator::generateLeagues()
 {
-  std::ifstream f(AssetPaths::leagues());
-  json data = json::parse(f);
+  // An imported user database replaces the pack leagues for this process.
+  json data;
+  if (const auto db = UserDatabase::activeContent())
+    data = db->leagues;
+  else
+  {
+    std::ifstream f(AssetPaths::leagues());
+    data = json::parse(f);
+  }
 
   std::vector<League> leagues;
 
@@ -213,8 +255,7 @@ std::vector<League> DataGenerator::generateLeagues()
 std::vector<Team> DataGenerator::generateTeams()
 {
   std::vector<Team> teams;
-  forEachPackItem(AssetPaths::teamsDir(),
-                  [&teams](const json& item)
+  visitClubItems([&teams](const json& item)
                   {
                     teams.emplace_back(
                         item.at("id").get<uint16_t>(),
@@ -228,9 +269,7 @@ std::vector<Team> DataGenerator::generateTeams()
 std::unordered_map<TeamID, ClubIdentity> DataGenerator::loadClubIdentities()
 {
   std::unordered_map<TeamID, ClubIdentity> identities;
-  forEachPackItem(
-      AssetPaths::teamsDir(),
-      [&identities](const json& item)
+  visitClubItems([&identities](const json& item)
       {
         ClubIdentity identity;
         identity.short_name = item.value("short_name", std::string());
@@ -273,8 +312,7 @@ std::unordered_map<TeamID, ClubIdentity> DataGenerator::loadClubIdentities()
 std::unordered_map<std::string, std::string> DataGenerator::loadClubArticles()
 {
   std::unordered_map<std::string, std::string> articles;
-  forEachPackItem(AssetPaths::teamsDir(),
-                  [&articles](const json& item)
+  visitClubItems([&articles](const json& item)
                   {
                     std::string article =
                         item.value("article_it", std::string());
@@ -289,6 +327,25 @@ std::unordered_map<PlayerID, std::uint8_t>
 DataGenerator::loadPlayerSkinTones()
 {
   std::unordered_map<PlayerID, std::uint8_t> tones;
+  const auto record = [&tones](const json& item)
+  {
+    const PlayerID id = item.at("id").get<PlayerID>();
+    if (item.contains("skin"))
+    {
+      tones[id] = static_cast<std::uint8_t>(item.at("skin").get<int>());
+      return;
+    }
+    const std::string nationality = item.value("nationality", std::string());
+    const auto found = stringToLanguage.find(nationality);
+    tones[id] = defaultSkinTone(
+        found != stringToLanguage.end() ? found->second : Language::EN, id);
+  };
+  // An imported database replaces the pack player files for this process.
+  if (const auto db = UserDatabase::activeContent())
+  {
+    for (const auto& item : db->players) record(item);
+    return tones;
+  }
   for (const auto& entry : fs::directory_iterator(AssetPaths::playersDir()))
   {
     if (!entry.is_regular_file() || entry.path().extension() != ".json")
@@ -296,19 +353,7 @@ DataGenerator::loadPlayerSkinTones()
     std::ifstream file(entry.path());
     json data = json::parse(file, nullptr, false);
     if (data.is_discarded() || !data.is_array()) continue;
-    for (const auto& item : data)
-    {
-      const PlayerID id = item.at("id").get<PlayerID>();
-      if (item.contains("skin"))
-      {
-        tones[id] = static_cast<std::uint8_t>(item.at("skin").get<int>());
-        continue;
-      }
-      const std::string nationality = item.value("nationality", std::string());
-      const auto found = stringToLanguage.find(nationality);
-      tones[id] = defaultSkinTone(
-          found != stringToLanguage.end() ? found->second : Language::EN, id);
-    }
+    for (const auto& item : data) record(item);
   }
   return tones;
 }
@@ -321,14 +366,10 @@ std::vector<Player> DataGenerator::generatePlayers(const GameData& gamedata)
   std::map<TeamID, std::int64_t> player_wages;
   PlayerID next_player_id = 50'000;
 
-  // Load pre-defined players from JSON and count them
-  for (const auto& entry : fs::directory_iterator(AssetPaths::playersDir()))
-  {
-    if (entry.is_regular_file() && entry.path().extension() == ".json")
-    {
-      std::ifstream f(entry.path());
-      json data = json::parse(f);
-      for (const auto& item : data)
+  // Load pre-defined players from JSON and count them; an imported user
+  // database replaces the pack player files for this process.
+  visitPlayerItems(
+      [&](const json& item)
       {
         TeamID team_id = item.at("team_id").get<uint16_t>();
         player_counts[team_id]++;
@@ -337,9 +378,13 @@ std::vector<Player> DataGenerator::generatePlayers(const GameData& gamedata)
             stringToLanguage.find(item.at("nationality").get<std::string>());
         Language nationality =
             (it != stringToLanguage.end()) ? it->second : Language::EN;
-        Foot foot = (item.at("preferred_foot").get<std::string>() == "Left")
-                        ? Foot::Left
-                        : Foot::Right;
+        const std::string foot_text =
+            item.at("preferred_foot").get<std::string>();
+        // "Both" is stored; where a single side is required it behaves as
+        // Right, matching the pre-Both fallback.
+        Foot foot = foot_text == "Left" ? Foot::Left
+                    : foot_text == "Both" ? Foot::Both
+                                          : Foot::Right;
 
         Player& player = players.emplace_back(
             item.at("id").get<uint32_t>(), team_id,
@@ -351,15 +396,14 @@ std::vector<Player> DataGenerator::generatePlayers(const GameData& gamedata)
             item.at("contract_years").get<uint8_t>(),
             item.at("height").get<uint8_t>(), foot,
             item.at("stats").get<std::map<std::string, float>>());
+        player.setNickname(item.value("nickname", std::string()));
         WorldRng rng = WorldRng::stream(gamedata.getWorldSeed(),
                                         RngDomain::Generation, player.getId());
         WorldGeneration::initializeHiddenAttributes(player, rng, stats_config);
         player_wages[team_id] += player.getWage();
         next_player_id =
             std::max(next_player_id, item.at("id").get<PlayerID>() + 1U);
-      }
-    }
-  }
+      });
 
   // Complete every club's 30-man squad around its reputation-based level.
   const auto economies = buildLeagueEconomies(gamedata);

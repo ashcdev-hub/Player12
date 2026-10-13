@@ -17,6 +17,7 @@
 #include "global/crash_report.h"
 #include "gui/gui_scene.h"
 #include "gui/gui_view.h"
+#include "gui/scenes/import_database_dialog.h"
 
 /**
  * @brief Scene for the main menu.
@@ -91,6 +92,7 @@ class MainMenuScene : public GUIScene
 
   /** Why some or all texts are English, empty when nothing fell back. */
   std::string language_notice;
+  ImportDatabaseDialog import_database_dialog;
 
   void loadCachedMetadata();
   void renderBackdrop();
