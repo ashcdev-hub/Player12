@@ -75,7 +75,7 @@ generated players, so this directory may be empty.
 | `age`, `height`  | Years, centimetres.                                           |
 | `nationality`    | Demonym such as `"Italian"` (see `stringToLanguage` in `src/global/languages.h`; unknown values fall back to English). |
 | `role`           | Role name understood by `RoleUtils::fromString`.              |
-| `stats`          | Map of the attribute names in `assets/config/stats_config.json` to 1-100 values. |
+| `stats`          | Map of attribute name to 1-100 value. The nine attributes are `Pace`, `Shooting`, `Passing`, `Dribbling`, `Defending`, `Physicality`, `Stamina`, `Vision` and `Goalkeeping` (see `possible_stats` in `assets/config/stats_config.json`). |
 | `contract_years`, `wage` | Contract length and weekly wage.                      |
 | `preferred_foot` | `"Left"` or `"Right"`.                                        |
 | `status`         | Optional, defaults to 0.                                      |
@@ -131,6 +131,10 @@ are all honoured.
   "last_names": {"names": ["Rossi", "Dubois"]}
 }
 ```
+
+Player `stats` holds the nine pack attributes (`Pace`, `Shooting`,
+`Passing`, `Dribbling`, `Defending`, `Physicality`, `Stamina`, `Vision`,
+`Goalkeeping`), each 0–100.
 
 `manifest.schema` must be `1`. `leagues` and `clubs` are required and
 non-empty; `players` may be empty (short squads are generated to 30 as
